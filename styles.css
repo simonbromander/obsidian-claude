@@ -1,0 +1,241 @@
+/* xterm.js core CSS (inlined to avoid import issues in Obsidian) */
+.xterm {
+  cursor: text;
+  position: relative;
+  user-select: none;
+  -ms-user-select: none;
+  -webkit-user-select: none;
+}
+.xterm.focus,
+.xterm:focus {
+  outline: none;
+}
+.xterm .xterm-helpers {
+  position: absolute;
+  top: 0;
+  z-index: 5;
+}
+.xterm .xterm-helper-textarea {
+  padding: 0;
+  border: 0;
+  margin: 0;
+  position: absolute;
+  opacity: 0;
+  left: -9999em;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: -5;
+  white-space: nowrap;
+  overflow: hidden;
+  resize: none;
+}
+.xterm .composition-view {
+  background: #000;
+  color: #fff;
+  display: none;
+  position: absolute;
+  white-space: nowrap;
+  z-index: 1;
+}
+.xterm .composition-view.active {
+  display: block;
+}
+.xterm .xterm-viewport {
+  background-color: transparent !important;
+  overflow-y: scroll;
+  cursor: default;
+  position: absolute;
+  right: 0;
+  left: 0;
+  top: 0;
+  bottom: 0;
+}
+.xterm .xterm-screen {
+  position: relative;
+}
+.xterm .xterm-screen canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.xterm .xterm-scroll-area {
+  visibility: hidden;
+}
+.xterm-char-measure-element {
+  display: inline-block;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: -9999em;
+  line-height: normal;
+}
+.xterm.enable-mouse-events {
+  cursor: default;
+}
+.xterm.xterm-cursor-pointer,
+.xterm .xterm-cursor-pointer {
+  cursor: pointer;
+}
+.xterm.column-select.focus {
+  cursor: crosshair;
+}
+.xterm .xterm-accessibility:not(.debug),
+.xterm .xterm-message {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 10;
+  color: transparent;
+  pointer-events: none;
+}
+.xterm .xterm-accessibility-tree:not(.debug) *::selection {
+  color: transparent;
+}
+.xterm .xterm-accessibility-tree {
+  user-select: text;
+  white-space: pre;
+}
+.xterm .live-region {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.xterm-dim {
+  opacity: 0.5;
+}
+.xterm-underline-1 {
+  text-decoration: underline;
+}
+.xterm-underline-2 {
+  text-decoration: double underline;
+}
+.xterm-underline-3 {
+  text-decoration: wavy underline;
+}
+.xterm-underline-4 {
+  text-decoration: dotted underline;
+}
+.xterm-underline-5 {
+  text-decoration: dashed underline;
+}
+.xterm-overline {
+  text-decoration: overline;
+}
+.xterm-strikethrough {
+  text-decoration: line-through;
+}
+.xterm-decoration-container .xterm-decoration {
+  z-index: 6;
+  position: absolute;
+}
+.xterm-decoration-overview-ruler {
+  z-index: 7;
+  position: absolute;
+  top: 0;
+  right: 0;
+  pointer-events: none;
+}
+.xterm-decoration-top {
+  z-index: 2;
+  position: relative;
+}
+
+/* Plugin container */
+.claude-code-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--background-primary);
+}
+
+/* Toolbar */
+.claude-code-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--background-modifier-border);
+  background-color: var(--background-secondary);
+  flex-shrink: 0;
+}
+
+.claude-code-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.claude-code-status.running {
+  background-color: var(--text-success);
+}
+
+.claude-code-status.error {
+  background-color: var(--text-error);
+}
+
+.claude-code-toolbar-spacer {
+  flex: 1;
+}
+
+.claude-code-toolbar button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.claude-code-toolbar button:hover {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+/* Terminal area */
+.claude-code-terminal {
+  flex: 1;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.claude-code-terminal .xterm {
+  height: 100%;
+}
+
+/* Scrollbar styling */
+.claude-code-terminal .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.claude-code-terminal .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.claude-code-terminal .xterm-viewport::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb-bg);
+  border-radius: 4px;
+}
+
+.claude-code-terminal .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-active-thumb-bg);
+}
+
+/* Error message overlay */
+.claude-code-error {
+  padding: 16px;
+  color: var(--text-error);
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
