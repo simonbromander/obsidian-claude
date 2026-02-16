@@ -64,10 +64,8 @@ export class TerminalManager {
       (this as any)._pluginDir ||
         path.join(
           process.env.HOME || "",
-          "Library",
-          "Mobile Documents",
-          "iCloud~md~obsidian",
-          "Documents",
+          "Obsidian",
+          "simbro",
           ".obsidian",
           "plugins",
           "obsidian-claude-code"

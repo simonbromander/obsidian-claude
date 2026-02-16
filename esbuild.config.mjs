@@ -8,10 +8,8 @@ const isProduction = process.argv[2] === "production";
 
 const vaultPluginDir = path.join(
   process.env.HOME,
-  "Library",
-  "Mobile Documents",
-  "iCloud~md~obsidian",
-  "Documents",
+  "Obsidian",
+  "simbro",
   ".obsidian",
   "plugins",
   "obsidian-claude-code"
