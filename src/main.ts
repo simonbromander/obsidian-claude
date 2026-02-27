@@ -1,5 +1,5 @@
 import { join } from "path";
-import { Plugin, WorkspaceLeaf } from "obsidian";
+import { FileSystemAdapter, Plugin } from "obsidian";
 import { ClaudeCodeView, VIEW_TYPE_CLAUDE_CODE } from "./claude-view";
 import {
   ClaudeCodeSettings,
@@ -10,11 +10,16 @@ import {
 export default class ClaudeCodePlugin extends Plugin {
   settings: ClaudeCodeSettings = DEFAULT_SETTINGS;
 
-  async onload(): Promise<void> {
+  onload(): void {
+    void this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
     await this.loadSettings();
 
     this.registerView(VIEW_TYPE_CLAUDE_CODE, (leaf) => {
-      const vaultPath = (this.app.vault.adapter as any).basePath as string ?? "";
+      const adapter = this.app.vault.adapter;
+      const vaultPath = adapter instanceof FileSystemAdapter ? adapter.getBasePath() : "";
       const pluginDir = vaultPath && this.manifest.dir
         ? join(vaultPath, this.manifest.dir)
         : "";
@@ -22,18 +27,20 @@ export default class ClaudeCodePlugin extends Plugin {
     });
 
     this.addRibbonIcon("terminal", "Open Claude Code", () => {
-      this.activateView();
+      void this.activateView();
     });
 
     this.addCommand({
       id: "open-claude-code",
-      name: "Open Claude Code terminal",
-      callback: () => this.activateView(),
+      name: "Open terminal",
+      callback: () => {
+        void this.activateView();
+      },
     });
 
     this.addCommand({
       id: "restart-claude-code",
-      name: "Restart Claude Code terminal",
+      name: "Restart terminal",
       callback: () => {
         const view = this.getView();
         if (view) view.restart();
@@ -55,13 +62,16 @@ export default class ClaudeCodePlugin extends Plugin {
     );
   }
 
-  async onunload(): Promise<void> {
-    this.app.workspace.detachLeavesOfType(VIEW_TYPE_CLAUDE_CODE);
+  onunload(): void {
+    // Views are cleaned up automatically by Obsidian
   }
 
   private getView(): ClaudeCodeView | null {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE_CODE);
-    return leaves.length > 0 ? (leaves[0].view as ClaudeCodeView) : null;
+    if (leaves.length > 0 && leaves[0].view instanceof ClaudeCodeView) {
+      return leaves[0].view;
+    }
+    return null;
   }
 
   private async activateView(): Promise<void> {

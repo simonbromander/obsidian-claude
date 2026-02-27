@@ -57,8 +57,9 @@ export class TerminalManager {
     this.onStatusChange?.(status);
   }
 
-  private get electronRequire(): NodeRequire {
-    const req = (window as any).require as NodeRequire | undefined;
+  private get electronRequire(): NodeJS.Require {
+    const w = window as Window & { require?: NodeJS.Require };
+    const req = w.require;
     if (!req) throw new Error("This plugin requires Obsidian desktop.");
     return req;
   }

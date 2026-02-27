@@ -34,7 +34,7 @@ export class ClaudeCodeView extends ItemView {
     return "terminal";
   }
 
-  async onOpen(): Promise<void> {
+  onOpen(): Promise<void> {
     const container = this.contentEl;
     container.empty();
     container.addClass("claude-code-container");
@@ -66,10 +66,12 @@ export class ClaudeCodeView extends ItemView {
     };
 
     this.terminalManager.open(terminalEl, this.settings, this.vaultPath);
+    return Promise.resolve();
   }
 
-  async onClose(): Promise<void> {
+  onClose(): Promise<void> {
     this.terminalManager.dispose();
+    return Promise.resolve();
   }
 
   restart(): void {

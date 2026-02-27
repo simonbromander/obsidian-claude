@@ -38,9 +38,9 @@ export class ClaudeCodeSettingTab extends PluginSettingTab {
         text
           .setPlaceholder("claude")
           .setValue(this.plugin.settings.claudePath)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.claudePath = value || "claude";
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           })
       );
 
@@ -51,9 +51,9 @@ export class ClaudeCodeSettingTab extends PluginSettingTab {
         text
           .setPlaceholder("/bin/zsh")
           .setValue(this.plugin.settings.shellPath)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.shellPath = value || "/bin/zsh";
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           })
       );
 
@@ -66,9 +66,9 @@ export class ClaudeCodeSettingTab extends PluginSettingTab {
         text
           .setPlaceholder("(vault root)")
           .setValue(this.plugin.settings.workingDir)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.workingDir = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           })
       );
 
@@ -80,9 +80,9 @@ export class ClaudeCodeSettingTab extends PluginSettingTab {
           .setLimits(10, 24, 1)
           .setValue(this.plugin.settings.fontSize)
           .setDynamicTooltip()
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.fontSize = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           })
       );
 
@@ -94,9 +94,9 @@ export class ClaudeCodeSettingTab extends PluginSettingTab {
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoLaunch)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.autoLaunch = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           })
       );
   }
