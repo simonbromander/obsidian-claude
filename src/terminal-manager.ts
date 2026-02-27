@@ -1,9 +1,13 @@
+import { join } from "path";
 import { Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import { buildTheme } from "./theme";
 import type { ClaudeCodeSettings } from "./settings";
 
-// node-pty types
+type TerminalStatus = "running" | "stopped" | "error";
+
+const PTY_PACKAGE = "node-pty-prebuilt-multiarch";
+
 interface IPty {
   onData: (callback: (data: string) => void) => { dispose: () => void };
   onExit: (callback: (e: { exitCode: number; signal?: number }) => void) => { dispose: () => void };
@@ -35,72 +39,100 @@ export class TerminalManager {
   private disposables: { dispose: () => void }[] = [];
   private resizeObserver: ResizeObserver | null = null;
   private containerEl: HTMLElement | null = null;
-  private _isRunning = false;
+  private _status: TerminalStatus = "stopped";
+  private pluginDir: string;
 
-  onStatusChange: ((running: boolean) => void) | null = null;
+  onStatusChange: ((status: TerminalStatus) => void) | null = null;
+
+  constructor(pluginDir: string) {
+    this.pluginDir = pluginDir;
+  }
 
   get isRunning(): boolean {
-    return this._isRunning;
+    return this._status === "running";
   }
 
-  private setRunning(value: boolean): void {
-    this._isRunning = value;
-    this.onStatusChange?.(value);
+  private setStatus(status: TerminalStatus): void {
+    this._status = status;
+    this.onStatusChange?.(status);
   }
 
-  private loadNodePty(): NodePtyModule {
+  private get electronRequire(): NodeRequire {
+    const req = (window as any).require as NodeRequire | undefined;
+    if (!req) throw new Error("This plugin requires Obsidian desktop.");
+    return req;
+  }
+
+  private get extendedEnv(): Record<string, string> {
+    const extraPaths = [
+      `${process.env.HOME}/.local/bin`,
+      "/opt/homebrew/bin",
+      "/usr/local/bin",
+      "/usr/bin",
+    ];
+    const base = { ...(process.env as Record<string, string>) };
+    const currentPath = base.PATH ?? "";
+    const prefixes = extraPaths.filter((p) => !currentPath.includes(p)).join(":");
+    base.PATH = prefixes ? `${prefixes}:${currentPath}` : currentPath;
+    return base;
+  }
+
+  private async ensureNodePty(): Promise<NodePtyModule> {
     if (this.ptyModule) return this.ptyModule;
 
-    // In Obsidian (Electron), require native modules via electronRequire
-    // node-pty must be installed in the plugin directory
-    const electronRequire = (window as any).require;
-    if (!electronRequire) {
-      throw new Error("electronRequire not available. This plugin requires Obsidian desktop.");
-    }
+    const req = this.electronRequire;
 
-    // Try loading from the plugin's own directory first
-    const path = electronRequire("path") as typeof import("path");
-    const pluginDir = path.join(
-      (this as any)._pluginDir ||
-        path.join(
-          process.env.HOME || "",
-          "Obsidian",
-          "simbro",
-          ".obsidian",
-          "plugins",
-          "obsidian-claude-code"
-        ),
-      "node_modules",
-      "node-pty"
-    );
+    if (this.pluginDir) {
+      const packagePath = join(this.pluginDir, "node_modules", PTY_PACKAGE);
+      const fs = req("fs") as typeof import("fs");
 
-    try {
-      this.ptyModule = electronRequire(pluginDir) as NodePtyModule;
-    } catch {
-      // Fallback: try global require
-      try {
-        this.ptyModule = electronRequire("node-pty") as NodePtyModule;
-      } catch {
-        throw new Error(
-          "node-pty not found. Install it in the plugin directory:\n\n" +
-            "cd \"$VAULT/.obsidian/plugins/obsidian-claude-code\"\n" +
-            "npm init -y && npm install node-pty\n" +
-            "npx @electron/rebuild -f -w node-pty -v <ELECTRON_VERSION>\n\n" +
-            "Find Electron version: Obsidian DevTools (Cmd+Opt+I) → process.versions.electron"
+      if (!fs.existsSync(packagePath)) {
+        this.terminal?.write(
+          `\x1b[33mInstalling ${PTY_PACKAGE} (first time only)...\x1b[0m\r\n`
         );
+        await this.npmInstall();
+        this.terminal?.write(`\x1b[32mDone.\x1b[0m\r\n\r\n`);
       }
+
+      this.ptyModule = req(packagePath) as NodePtyModule;
+    } else {
+      // Fallback if pluginDir couldn't be resolved
+      this.ptyModule = req(PTY_PACKAGE) as NodePtyModule;
     }
 
-    return this.ptyModule!;
+    return this.ptyModule;
+  }
+
+  private npmInstall(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const { exec } = this.electronRequire(
+        "child_process"
+      ) as typeof import("child_process");
+
+      exec(
+        `npm install ${PTY_PACKAGE}`,
+        { cwd: this.pluginDir, env: this.extendedEnv },
+        (err, _stdout, stderr) => {
+          if (err) {
+            reject(
+              new Error(
+                `Failed to install ${PTY_PACKAGE}:\n${stderr || err.message}\n\n` +
+                  "Ensure npm is installed and in your PATH, then restart the terminal."
+              )
+            );
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
   }
 
   open(container: HTMLElement, settings: ClaudeCodeSettings, vaultPath: string): void {
     this.containerEl = container;
 
-    const theme = buildTheme();
-
     this.terminal = new Terminal({
-      theme,
+      theme: buildTheme(),
       fontSize: settings.fontSize,
       fontFamily: "Menlo, Monaco, 'Courier New', monospace",
       cursorBlink: true,
@@ -115,108 +147,75 @@ export class TerminalManager {
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(container);
 
-    // Initial fit
-    requestAnimationFrame(() => {
-      this.fit();
-    });
+    requestAnimationFrame(() => this.fit());
 
-    // Watch for container resize
-    this.resizeObserver = new ResizeObserver(() => {
-      this.fit();
-    });
+    this.resizeObserver = new ResizeObserver(() => this.fit());
     this.resizeObserver.observe(container);
 
-    // Spawn PTY
-    this.spawn(settings, vaultPath);
+    this.doSpawn(settings, vaultPath);
   }
 
-  private spawn(settings: ClaudeCodeSettings, vaultPath: string): void {
+  private doSpawn(settings: ClaudeCodeSettings, vaultPath: string): void {
+    this.spawnAsync(settings, vaultPath).catch((err: Error) => {
+      this.setStatus("error");
+      const errorEl = document.createElement("div");
+      errorEl.className = "claude-code-error";
+      errorEl.textContent = err.message;
+      this.containerEl?.appendChild(errorEl);
+    });
+  }
+
+  private async spawnAsync(settings: ClaudeCodeSettings, vaultPath: string): Promise<void> {
     if (!this.terminal || !this.fitAddon) return;
 
-    try {
-      const ptyMod = this.loadNodePty();
-      const cwd = settings.workingDir || vaultPath;
+    const ptyMod = await this.ensureNodePty();
+    const cwd = settings.workingDir || vaultPath;
 
-      // Build environment with PATH from shell profile
-      const env: Record<string, string> = {
-        ...process.env as Record<string, string>,
+    this.pty = ptyMod.spawn(settings.shellPath, [], {
+      name: "xterm-256color",
+      cols: this.terminal.cols,
+      rows: this.terminal.rows,
+      cwd,
+      env: {
+        ...this.extendedEnv,
         TERM: "xterm-256color",
         COLORTERM: "truecolor",
-      };
+      },
+    });
 
-      // Ensure common paths are in PATH
-      const extraPaths = [
-        `${process.env.HOME}/.local/bin`,
-        "/opt/homebrew/bin",
-        "/usr/local/bin",
-      ];
-      const currentPath = env.PATH || "";
-      for (const p of extraPaths) {
-        if (!currentPath.includes(p)) {
-          env.PATH = `${p}:${env.PATH}`;
-        }
-      }
+    this.setStatus("running");
 
-      this.pty = ptyMod.spawn(settings.shellPath, [], {
-        name: "xterm-256color",
-        cols: this.terminal.cols,
-        rows: this.terminal.rows,
-        cwd,
-        env,
+    const dataDisp = this.pty.onData((data) => this.terminal?.write(data));
+    this.disposables.push(dataDisp);
+
+    const inputDisp = this.terminal.onData((data) => this.pty?.write(data));
+    this.disposables.push(inputDisp);
+
+    const exitDisp = this.pty.onExit(({ exitCode }) => {
+      this.setStatus("stopped");
+      this.terminal?.write(
+        `\r\n\x1b[90m[Process exited with code ${exitCode}. Press any key to restart.]\x1b[0m\r\n`
+      );
+      const restartDisp = this.terminal!.onKey(() => {
+        restartDisp.dispose();
+        this.doSpawn(settings, vaultPath);
       });
+      this.disposables.push(restartDisp);
+    });
+    this.disposables.push(exitDisp);
 
-      this.setRunning(true);
-
-      // Wire PTY output → terminal
-      const dataDisp = this.pty.onData((data) => {
-        this.terminal?.write(data);
-      });
-      this.disposables.push(dataDisp);
-
-      // Wire terminal input → PTY
-      const inputDisp = this.terminal.onData((data) => {
-        this.pty?.write(data);
-      });
-      this.disposables.push(inputDisp);
-
-      // Handle exit
-      const exitDisp = this.pty.onExit(({ exitCode }) => {
-        this.setRunning(false);
-        this.terminal?.write(
-          `\r\n\x1b[90m[Process exited with code ${exitCode}. Press any key to restart.]\x1b[0m\r\n`
-        );
-        // Wait for keypress to restart
-        const restartDisp = this.terminal!.onKey(() => {
-          restartDisp.dispose();
-          this.restart(settings, vaultPath);
-        });
-        this.disposables.push(restartDisp);
-      });
-      this.disposables.push(exitDisp);
-
-      // Auto-launch claude
-      if (settings.autoLaunch) {
-        setTimeout(() => {
-          const claudeCmd = settings.claudePath || "claude";
-          this.pty?.write(`${claudeCmd}\r`);
-        }, 300);
-      }
-    } catch (err: any) {
-      this.setRunning(false);
-      const errorEl = this.containerEl?.createEl("div", {
-        cls: "claude-code-error",
-        text: err.message || String(err),
-      });
-      if (errorEl) {
-        this.containerEl?.appendChild(errorEl);
-      }
+    if (settings.autoLaunch) {
+      setTimeout(() => {
+        const claudeCmd = settings.claudePath || "claude";
+        this.pty?.write(`${claudeCmd}\r`);
+      }, 300);
     }
   }
 
   restart(settings: ClaudeCodeSettings, vaultPath: string): void {
     this.killPty();
     this.terminal?.clear();
-    this.spawn(settings, vaultPath);
+    this.doSpawn(settings, vaultPath);
   }
 
   clear(): void {
@@ -249,7 +248,7 @@ export class TerminalManager {
       }
       this.pty = null;
     }
-    this.setRunning(false);
+    this.setStatus("stopped");
   }
 
   dispose(): void {

@@ -13,12 +13,13 @@ export class ClaudeCodeView extends ItemView {
   constructor(
     leaf: WorkspaceLeaf,
     settings: ClaudeCodeSettings,
-    vaultPath: string
+    vaultPath: string,
+    pluginDir: string
   ) {
     super(leaf);
     this.settings = settings;
     this.vaultPath = vaultPath;
-    this.terminalManager = new TerminalManager();
+    this.terminalManager = new TerminalManager(pluginDir);
   }
 
   getViewType(): string {
@@ -51,29 +52,28 @@ export class ClaudeCodeView extends ItemView {
 
     const restartBtn = toolbar.createEl("button", { attr: { "aria-label": "Restart terminal" } });
     restartBtn.textContent = "Restart";
-    restartBtn.addEventListener("click", () =>
-      this.terminalManager.restart(this.settings, this.vaultPath)
-    );
+    restartBtn.addEventListener("click", () => this.restart());
 
     // Terminal container
     const terminalEl = container.createDiv({ cls: "claude-code-terminal" });
 
-    // Status change callback
-    this.terminalManager.onStatusChange = (running) => {
+    this.terminalManager.onStatusChange = (status) => {
       if (this.statusEl) {
         this.statusEl.removeClass("running", "error");
-        if (running) {
-          this.statusEl.addClass("running");
-        }
+        if (status === "running") this.statusEl.addClass("running");
+        else if (status === "error") this.statusEl.addClass("error");
       }
     };
 
-    // Open terminal
     this.terminalManager.open(terminalEl, this.settings, this.vaultPath);
   }
 
   async onClose(): Promise<void> {
     this.terminalManager.dispose();
+  }
+
+  restart(): void {
+    this.terminalManager.restart(this.settings, this.vaultPath);
   }
 
   refreshTheme(): void {

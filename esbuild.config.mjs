@@ -6,27 +6,14 @@ import fs from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.argv[2] === "production";
 
-const vaultPluginDir = path.join(
-  process.env.HOME,
-  "Obsidian",
-  "simbro",
-  ".obsidian",
-  "plugins",
-  "obsidian-claude-code"
-);
+// For dev: set OBSIDIAN_PLUGIN_DIR to your vault's plugin directory
+// e.g. export OBSIDIAN_PLUGIN_DIR="$HOME/path/to/vault/.obsidian/plugins/obsidian-claude-code"
+// For production: builds to dist/
+const outDir = process.env.OBSIDIAN_PLUGIN_DIR || path.join(__dirname, "dist");
 
-// Ensure output directory exists
-fs.mkdirSync(vaultPluginDir, { recursive: true });
-
-// Copy manifest.json and styles.css to vault plugin dir
-fs.copyFileSync(
-  path.join(__dirname, "manifest.json"),
-  path.join(vaultPluginDir, "manifest.json")
-);
-fs.copyFileSync(
-  path.join(__dirname, "styles.css"),
-  path.join(vaultPluginDir, "styles.css")
-);
+fs.mkdirSync(outDir, { recursive: true });
+fs.copyFileSync(path.join(__dirname, "manifest.json"), path.join(outDir, "manifest.json"));
+fs.copyFileSync(path.join(__dirname, "styles.css"), path.join(outDir, "styles.css"));
 
 const context = await esbuild.context({
   entryPoints: [path.join(__dirname, "src", "main.ts")],
@@ -45,14 +32,14 @@ const context = await esbuild.context({
     "@lezer/common",
     "@lezer/highlight",
     "@lezer/lr",
-    "node-pty",
+    "node-pty-prebuilt-multiarch",
   ],
   format: "cjs",
   target: "es2018",
   logLevel: "info",
   sourcemap: isProduction ? false : "inline",
   treeShaking: true,
-  outfile: path.join(vaultPluginDir, "main.js"),
+  outfile: path.join(outDir, "main.js"),
   platform: "node",
   define: {
     "process.env.NODE_ENV": JSON.stringify(

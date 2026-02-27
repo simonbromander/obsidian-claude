@@ -1,3 +1,4 @@
+import { join } from "path";
 import { Plugin, WorkspaceLeaf } from "obsidian";
 import { ClaudeCodeView, VIEW_TYPE_CLAUDE_CODE } from "./claude-view";
 import {
@@ -12,18 +13,18 @@ export default class ClaudeCodePlugin extends Plugin {
   async onload(): Promise<void> {
     await this.loadSettings();
 
-    // Register view
     this.registerView(VIEW_TYPE_CLAUDE_CODE, (leaf) => {
-      const vaultPath = (this.app.vault.adapter as any).basePath || "";
-      return new ClaudeCodeView(leaf, this.settings, vaultPath);
+      const vaultPath = (this.app.vault.adapter as any).basePath as string ?? "";
+      const pluginDir = vaultPath && this.manifest.dir
+        ? join(vaultPath, this.manifest.dir)
+        : "";
+      return new ClaudeCodeView(leaf, this.settings, vaultPath, pluginDir);
     });
 
-    // Ribbon icon
     this.addRibbonIcon("terminal", "Open Claude Code", () => {
       this.activateView();
     });
 
-    // Commands
     this.addCommand({
       id: "open-claude-code",
       name: "Open Claude Code terminal",
@@ -35,33 +36,21 @@ export default class ClaudeCodePlugin extends Plugin {
       name: "Restart Claude Code terminal",
       callback: () => {
         const view = this.getView();
-        if (view) {
-          const vaultPath = (this.app.vault.adapter as any).basePath || "";
-          (view as any).terminalManager.restart(this.settings, vaultPath);
-        }
+        if (view) view.restart();
       },
     });
 
-    // Settings tab
     this.addSettingTab(new ClaudeCodeSettingTab(this.app, this));
 
-    // Theme change listener
     this.registerEvent(
       this.app.workspace.on("css-change", () => {
-        const view = this.getView();
-        if (view) {
-          view.refreshTheme();
-        }
+        this.getView()?.refreshTheme();
       })
     );
 
-    // Refit terminal on layout change
     this.registerEvent(
       this.app.workspace.on("resize", () => {
-        const view = this.getView();
-        if (view) {
-          view.refit();
-        }
+        this.getView()?.refit();
       })
     );
   }
@@ -72,10 +61,7 @@ export default class ClaudeCodePlugin extends Plugin {
 
   private getView(): ClaudeCodeView | null {
     const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_CLAUDE_CODE);
-    if (leaves.length > 0) {
-      return leaves[0].view as ClaudeCodeView;
-    }
-    return null;
+    return leaves.length > 0 ? (leaves[0].view as ClaudeCodeView) : null;
   }
 
   private async activateView(): Promise<void> {
@@ -102,10 +88,6 @@ export default class ClaudeCodePlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
-    // Update existing view with new settings
-    const view = this.getView();
-    if (view) {
-      view.updateSettings(this.settings);
-    }
+    this.getView()?.updateSettings(this.settings);
   }
 }
