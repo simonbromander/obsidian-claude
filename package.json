@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "release": "node esbuild.config.mjs production && cp LICENSE dist/"
+    "release": "OBSIDIAN_PLUGIN_DIR=dist node esbuild.config.mjs production && cp LICENSE dist/"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
